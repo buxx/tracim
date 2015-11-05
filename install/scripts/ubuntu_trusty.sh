@@ -2,9 +2,7 @@
 
 # Install script for tracim on Ubuntu Trusty
 # To test it with docker, run (assuming you're in tracim repository folder):
-# docker run -i ubuntu:14.04 /bin/bash -c 'cat > /install.sh \
-#     && /bin/bash /install.sh \&& cd /tracim/tracim \
-#     && nosetests -c tracim/test.ini' < ./install/scripts/ubuntu_trusty.sh
+# docker run -i ubuntu:14.04 /bin/bash -c 'cat > /install.sh && /bin/bash /install.sh  && cd /tracim/tracim && /tracim/tg2env/bin/nosetests -c tracim/test.ini' < ./install/scripts/ubuntu_trusty.sh
 # where ./install/scripts/ubuntu_trusty.sh is this script.
 
 #
