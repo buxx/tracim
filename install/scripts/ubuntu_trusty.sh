@@ -1,10 +1,26 @@
 #!/bin/bash
 
-set -e # Exit if error thrown, See man page, thee is exceptions !
-export DEBIAN_FRONTEND="noninteractive"
+# Install script for tracim on Ubuntu Trusty
+# To test it with docker, run (assuming you're in tracim repository folder):
+# docker run -i ubuntu:14.04 /bin/bash -c 'cat > /install.sh \
+#     && /bin/bash /install.sh \&& cd /tracim/tracim \
+#     && nosetests -c tracim/test.ini' < ./install/scripts/ubuntu_trusty.sh
+
+#
+# START CONFIGURATION
+#
+
+GITHUB_REPO="https://github.com/buxx/tracim.git" # TODO: depôt final tracim/tracim
+TRACIM_TEST_DB_NAME="tracim_test"
+TRACIM_TEST_USER_LOGIN="postgres"
+TRACIM_TEST_USER_PASS="dummy"
+
+#
+# END CONFIGURATION
+#
 
 function log {
-  echo "###### TRACIM install: $1"
+  echo "###### TRACIM INSTALL: $1"
 }
 
 CURRENT_PATH=`pwd`
@@ -19,7 +35,7 @@ sudo apt-get install -y realpath python3 python-virtualenv python3-dev python-pi
                         git
 
 log "Get tracim sources and setup it's virtual env"
-git clone -b dev/install/scripts https://github.com/buxx/tracim.git # TODO: depot buxx
+git clone -b dev/install/scripts $GITHUB_REPO
 cd tracim
 virtualenv -p /usr/bin/python3 tg2env
 source tg2env/bin/activate
@@ -31,13 +47,11 @@ pip install -r install/scripts/ubuntu_trusty_requirements.txt
 ./bin/tg2env-patch 2 tg2env/lib/python3.4/site-packages
 
 log "Postgresql test database"
-service postgresql start
-sudo su postgres -c "psql -c 'create database tracim_test;' -U postgres"
+sudo service postgresql start
+sudo -u postgres psql -U postgres -c 'create database $TRACIM_TEST_DB_NAME;'
+sudo -u postgres psql -U postgres -c "alter user $TRACIM_TEST_USER_PASS with \
+    password '$TRACIM_TEST_USER_PASS';"
 
 log "Setup tracim"
-cp tracim/development.ini.base tracim/development.ini
+#cp tracim/development.ini.base tracim/development.ini # TODO: necessaire ?
 cd tracim && gearbox setup-app && cd -
-
-# TODO: hors script (dans docker run)
-log "Run tracim tests"
-nosetests -c ${TRAVIS_BUILD_DIR}/tracim/test.ini -v
