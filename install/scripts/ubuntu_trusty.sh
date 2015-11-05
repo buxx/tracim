@@ -48,10 +48,10 @@ pip install -r install/scripts/ubuntu_trusty_requirements.txt
 
 log "Postgresql test database"
 sudo service postgresql start
-sudo -u postgres psql -U postgres -c 'create database $TRACIM_TEST_DB_NAME;'
+sudo -u postgres psql -U postgres -c "create database $TRACIM_TEST_DB_NAME;"
 sudo -u postgres psql -U postgres -c "alter user $TRACIM_TEST_USER_PASS with \
     password '$TRACIM_TEST_USER_PASS';"
 
 log "Setup tracim"
-#cp tracim/development.ini.base tracim/development.ini # TODO: necessaire ?
+cp tracim/development.ini.base tracim/development.ini
 cd tracim && gearbox setup-app && cd -
