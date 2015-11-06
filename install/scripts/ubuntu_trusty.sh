@@ -1,6 +1,6 @@
 #!/bin/bash
 
-:"
+<<'COMMENT'
 Install script for tracim on Ubuntu Trusty:
 To test it in test script (like travis-ci) with docker,
 run (assuming you are in tracim repository folder):
@@ -11,7 +11,7 @@ docker run -i ubuntu:14.04 /bin/bash -c \
     < ./install/scripts/ubuntu_trusty.sh
 
 where ./install/scripts/ubuntu_trusty.sh is this script.
-"
+COMMENT
 
 #
 # START CONFIGURATION
