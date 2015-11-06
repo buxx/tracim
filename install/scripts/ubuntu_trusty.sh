@@ -6,8 +6,7 @@ To test it in test script (like travis-ci) with docker,
 run (assuming you are in tracim repository folder):
 
 docker run -i ubuntu:14.04 /bin/bash -c \
-    'cat > /install.sh && /bin/bash /install.sh \
-    && cd /tracim/tracim && /tracim/tg2env/bin/nosetests -c tracim/test.ini \
+    'bash && cd /tracim/tracim && /tracim/tg2env/bin/nosetests -c tracim/test.ini' \
     < ./install/scripts/ubuntu_trusty.sh
 
 where ./install/scripts/ubuntu_trusty.sh is this script.
@@ -39,7 +38,7 @@ sudo apt-get update
 sudo apt-get install -y realpath python3 python-virtualenv python3-dev python-pip build-essential\
                         postgresql-server-dev-all libxml2-dev libxslt1-dev python-lxml\
                         postgresql postgresql-client\
-                        git
+                        git;
 
 log "Get tracim sources and setup it's virtual env"
 git clone -b dev/install/scripts $GITHUB_REPO
