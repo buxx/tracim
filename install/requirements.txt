@@ -38,12 +38,11 @@ tg.devtools==2.3.4
 tgext.admin==0.6.4
 tgext.asyncjob==0.3.1
 tgext.crud==0.7.3
-tgext.pluggable==0.5.2
+tgext.pluggable==0.5.4
 transaction==1.4.3
 tw2.core==2.2.2
 tw2.forms==2.2.2.1
 waitress==0.8.9
-wsgiref==0.1.2
 zope.interface==4.1.1
 zope.sqlalchemy==0.7.5
 tgapp-resetpassword==0.1.3
