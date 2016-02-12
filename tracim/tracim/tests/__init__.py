@@ -69,6 +69,8 @@ def setup_db():
 
 def teardown_db():
     """Destroy the database schema."""
+    if config['tg.app_globals'] is None:
+        print(config)
     engine = config['tg.app_globals'].sa_engine
     connection = engine.connect()
 
