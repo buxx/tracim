@@ -76,7 +76,6 @@ setup(
     },
     dependency_links=[
         "http://tg.gy/230",
-        "git+ssh://git@github.com:TurboGears/tg2.git@tg2.3.7#egg=TurboGears2-2.3.7"
         ],
     zip_safe=False
 )
