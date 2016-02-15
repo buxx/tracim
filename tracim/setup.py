@@ -32,7 +32,7 @@ testpkgs=['WebTest >= 1.2.3',
                ]
 
 install_requires=[
-    "TurboGears2 >= 2.3.7",
+    "TurboGears2 == 2.3.7",
     "Genshi",
     "Mako",
     "zope.sqlalchemy >= 0.4",
@@ -76,7 +76,7 @@ setup(
     },
     dependency_links=[
         "http://tg.gy/230",
-        "git+ssh://git@github.com/buxx/tg2.git@test/2.3.7#egg=TurboGears2-2.3.7"
+        "git+ssh://git@github.com:TurboGears/tg2.git@tg2.3.7#egg=TurboGears2-2.3.7"
         ],
     zip_safe=False
 )
