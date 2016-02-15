@@ -25,7 +25,7 @@ class TracimAppConfig(AppConfig):
         are setup.
         """
 
-        with open('/tmp/debug.txt', 'w') as f:
+        with open('/tmp/debug.txt', 'a') as f:
 
             print('NEW setup_helpers_and_globals', file=f)
 
