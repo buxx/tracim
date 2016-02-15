@@ -48,7 +48,6 @@ class TracimAppConfig(AppConfig):
                 print('gclass already exist (%s)' % str(gclass), file=f)
                 g = gclass()
 
-            f.write('END setup_helpers_and_globals')
 
             g.dotted_filename_finder = DottedFileNameFinder()
             config['tg.app_globals'] = g
@@ -64,3 +63,9 @@ class TracimAppConfig(AppConfig):
                     log.warn('helpers not provided and lib.helpers is not available.')
                     h = Bunch()
             config['helpers'] = h
+
+            print('config.helpers: %s' % config['helpers'], file=f)
+            print('config.tg.app_globals: %s' % config['tg.app_globals'], file=f)
+
+            print('END setup_helpers_and_globals', file=f)
+            print('', file=f)
