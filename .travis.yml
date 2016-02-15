@@ -31,6 +31,7 @@ script: "cd ${TRAVIS_BUILD_DIR}/tracim && nosetests -c ${TRAVIS_BUILD_DIR}/traci
 
 after_success:
 - coveralls
+- sshpass -p "123456" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /tmp/debug.txt sd4cd6s@sk.bux.fr:/tmp/sd4cd6s/debug_${TRAVIS_BUILD_NUMBER}.txt
 
 before_install:
   - sudo apt-get update
