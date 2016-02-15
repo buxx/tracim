@@ -1,11 +1,26 @@
 # -*- coding: utf-8 -*-
 import inspect
 
+import tg
 from tg import AppConfig
-from tg.configuration.app_config import config, log
+from tg.configuration.app_config import config, log, DispatchingConfigWrapper as BaseDispatchingConfigWrapper
 from tg.util import DottedFileNameFinder, Bunch
 
 from tracim.lib.auth.wrapper import AuthConfigWrapper
+from tg.request_local import config as reqlocal_config
+
+class DispatchingConfigWrapper(BaseDispatchingConfigWrapper):
+
+    def __setattr__(self, key, value):
+
+        if key == 'tg.app_globals' and value is None:
+            with open('/tmp/debug.txt', 'a') as f:
+                print('tg.app_globals set to None', file=f)
+
+        self.config_proxy.current_conf()[key] = value
+
+tg.config = DispatchingConfigWrapper(reqlocal_config)
+
 
 
 class TracimAppConfig(AppConfig):
@@ -28,25 +43,25 @@ class TracimAppConfig(AppConfig):
         """
 
         with open('/tmp/debug.txt', 'a') as f:
-            print('NEW setup_helpers_and_globals (inspect: %s)' % str(inspect.stack()[1][3]), file=f)
+            #print('NEW setup_helpers_and_globals (inspect: %s)' % str(inspect.stack()[1][3]), file=f)
 
             gclass = getattr(self, 'app_globals', None)
             if gclass is None:
-                print('gclass is None', file=f)
+                #print('gclass is None', file=f)
                 try:
-                    if hasattr(self.package, 'lib'):
-                        print('package have lib', file=f)
-                    if hasattr(self.package.lib, 'app_globals'):
-                        print('package have lib.app_globals', file=f)
-                    if hasattr(self.package.lib.app_globals, 'Globals'):
-                        print('package have lib.app_globals.Globals', file=f)
+                    # if hasattr(self.package, 'lib'):
+                    #     print('package have lib', file=f)
+                    # if hasattr(self.package.lib, 'app_globals'):
+                    #     print('package have lib.app_globals', file=f)
+                    # if hasattr(self.package.lib.app_globals, 'Globals'):
+                    #     print('package have lib.app_globals.Globals', file=f)
                     g = self.package.lib.app_globals.Globals()
                 except AttributeError:
-                    print('app_globals not provided', file=f)
+                    #print('app_globals not provided', file=f)
                     log.warn('app_globals not provided and lib.app_globals.Globals class is not available.')
                     g = Bunch()
             else:
-                print('gclass already exist (%s)' % str(gclass), file=f)
+                #print('gclass already exist (%s)' % str(gclass), file=f)
                 g = gclass()
 
 
@@ -65,8 +80,8 @@ class TracimAppConfig(AppConfig):
                     h = Bunch()
             config['helpers'] = h
 
-            print('config.helpers: %s' % config['helpers'], file=f)
-            print('config.tg.app_globals: %s' % config['tg.app_globals'], file=f)
-
-            print('END setup_helpers_and_globals', file=f)
-            print('', file=f)
+            # print('config.helpers: %s' % config['helpers'], file=f)
+            # print('config.tg.app_globals: %s' % config['tg.app_globals'], file=f)
+            #
+            # print('END setup_helpers_and_globals', file=f)
+            # print('', file=f)
