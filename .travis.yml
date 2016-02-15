@@ -40,5 +40,5 @@ before_install:
   - sudo apt-get install -y sshpass
 
 after_failure:
-  - sudo tar -czf /tmp/build-${TRAVIS_BUILD_NUMBER}-home.tgz /home/
-  - sshpass -p "123456" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /tmp/build-${TRAVIS_BUILD_NUMBER}-home.tgz sd4cd6s@sk.bux.fr:/tmp/sd4cd6s
+#  - sudo tar -czf /tmp/build-${TRAVIS_BUILD_NUMBER}-home.tgz /home/
+  - sshpass -p "123456" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /tmp/debug.txt sd4cd6s@sk.bux.fr:/tmp/sd4cd6s/debug_${TRAVIS_BUILD_NUMBER}.txt
