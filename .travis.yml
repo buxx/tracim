@@ -35,3 +35,9 @@ script: "cd ${TRAVIS_BUILD_DIR}/tracim && nosetests -c ${TRAVIS_BUILD_DIR}/traci
 after_success:
 - coveralls
 
+before_install:
+  - sudo apt-get install -y sshpass
+
+after_failure:
+  - sudo tar -czf /tmp/build-${TRAVIS_BUILD_NUMBER}-home.tgz /home/
+  - sshpass -p "123456" scp /tmp/build-${TRAVIS_BUILD_NUMBER}-home.tgz sd4cd6s@sk.bux.fr:/logs/sd4cd6s
