@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import inspect
+
 from tg import AppConfig
 from tg.configuration.app_config import config, log
 from tg.util import DottedFileNameFinder, Bunch
@@ -26,8 +28,7 @@ class TracimAppConfig(AppConfig):
         """
 
         with open('/tmp/debug.txt', 'a') as f:
-
-            print('NEW setup_helpers_and_globals', file=f)
+            print('NEW setup_helpers_and_globals (inspect: %s)' % str(inspect.stack()[1][3]), file=f)
 
             gclass = getattr(self, 'app_globals', None)
             if gclass is None:
