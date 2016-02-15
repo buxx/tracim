@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Unit and functional test suite for tracim."""
-import inspect
+
 from os import getcwd, path
 
 import ldap3
@@ -71,10 +71,6 @@ def teardown_db():
     """Destroy the database schema."""
     if config['tg.app_globals'] is None:
         print(config)
-    with open('/tmp/debug.txt', 'a') as f:
-        print('', file=f)
-        print('WE ARE IN teardown_db (inspect: %s)' % str(inspect.stack()[1][3]), file=f)
-        print('', file=f)
     engine = config['tg.app_globals'].sa_engine
     connection = engine.connect()
 
