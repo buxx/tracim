@@ -9,14 +9,15 @@ import datetime as datetime_root
 import json
 
 from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy import Column
+from sqlalchemy import Column, inspect
 from sqlalchemy import func
 from sqlalchemy import ForeignKey
 from sqlalchemy import Sequence
+from sqlalchemy import event
 
 from sqlalchemy.ext.hybrid import hybrid_property
 
-from sqlalchemy.orm import backref
+from sqlalchemy.orm import backref, Query
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import deferred
 from sqlalchemy.orm.collections import attribute_mapped_collection
@@ -30,7 +31,7 @@ from sqlalchemy.types import Unicode
 
 from tg.i18n import lazy_ugettext as l_, ugettext as _
 
-from tracim.model import DeclarativeBase
+from tracim.model import DeclarativeBase, DBSession, NotVirtualContentQuery
 from tracim.model.auth import User
 
 class BreadcrumbItem(object):
@@ -731,6 +732,17 @@ class ContentRevisionRO(DeclarativeBase):
     node = relationship('Content', remote_side=[Content.content_id], backref='revisions')
     owner = relationship('User', remote_side=[User.user_id])
 
+    @classmethod
+    def new_from(cls, revision):
+        columns = (column.key for column in inspect(cls).attrs if column.key != 'revision_id')
+        new_revision = cls()
+
+        for column_name in columns:
+            column_value = getattr(revision, column_name)
+            setattr(new_revision, column_name, column_value)
+
+        return new_revision
+
     def get_status(self):
         return ContentStatus(self.status)
 
@@ -763,6 +775,42 @@ class ContentRevisionRO(DeclarativeBase):
             return True
 
         return False
+
+
+@event.listens_for(DBSession, 'before_flush')
+def prevent_content_revision_updates(session, flush_context, instances):
+    for instance in session.dirty:
+        if isinstance(instance, ContentRevisionRO) and instance.revision_id is not None:
+            previous_revision = instance
+            new_revision = ContentRevisionRO.new_from(instance)
+            session.expunge(previous_revision)
+            session.add(new_revision)
+
+# TODO: REFACT prevent_content_revision_updates AND prevent_content_revision_delete
+
+
+@event.listens_for(DBSession, 'before_flush')
+def prevent_content_revision_delete(session, flush_context, instances):
+    for instance in session.deleted:
+        if isinstance(instance, ContentRevisionRO) and instance.revision_id is not None:
+            previous_revision = instance
+            new_revision = ContentRevisionRO.new_from(instance)
+            new_revision.is_deleted = True
+            session.expunge(previous_revision)
+            session.add(new_revision)
+
+
+@event.listens_for(Query, "before_compile", retval=True)
+def virtual_content_query_adapter(query):
+    try:
+        return query.query_for_virtual_content()
+    except NotVirtualContentQuery:
+        return query
+
+
+class VirtualContent(ContentRevisionRO):
+    pass
+
 
 class RevisionReadStatus(DeclarativeBase):
 
