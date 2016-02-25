@@ -28,7 +28,7 @@ class TestVirtualContent(TestStandard):
 
     def test_update(self):
         self.test_create()
-        content = DBSession.query(ContentRevisionRO).filter(ContentRevisionRO.label == 'TEST_CONTENT_1').one()
+        content = DBSession.query(VirtualContent).filter(VirtualContent.label == 'TEST_CONTENT_1').one()
         ok_(content)
         content_id = content.content_id
         old_description = content.description
