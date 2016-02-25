@@ -780,9 +780,9 @@ class ContentRevisionRO(DeclarativeBase):
 @event.listens_for(DBSession, 'before_flush')
 def prevent_content_revision_updates(session, flush_context, instances):
     for instance in session.dirty:
-        if isinstance(instance, ContentRevisionRO) and instance.revision_id is not None:
+        if isinstance(instance, VirtualContent) and instance.revision_id is not None:
             previous_revision = instance
-            new_revision = ContentRevisionRO.new_from(instance)
+            new_revision = VirtualContent.new_from(instance)
             session.expunge(previous_revision)
             session.add(new_revision)
 

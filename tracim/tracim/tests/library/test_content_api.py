@@ -12,10 +12,11 @@ from tracim.lib.group import GroupApi
 from tracim.lib.user import UserApi
 from tracim.lib.workspace import RoleApi
 from tracim.lib.workspace import WorkspaceApi
+from tracim.model import DBSession
 
 from tracim.model.auth import Group
 
-from tracim.model.data import ActionDescription
+from tracim.model.data import ActionDescription, ContentRevisionRO, Workspace
 from tracim.model.data import Content
 from tracim.model.data import ContentType
 from tracim.model.data import UserRoleInWorkspace
@@ -693,6 +694,13 @@ class TestContentApi(TestStandard):
 
         id1 = p1.content_id
         id2 = p2.content_id
+
+        eq_(1, DBSession.query(Workspace).filter(Workspace.label == 'test workspace').count())
+        eq_(1, DBSession.query(ContentRevisionRO).filter(ContentRevisionRO.label == 'this is randomized folder').count())
+        eq_(2, DBSession.query(ContentRevisionRO).filter(ContentRevisionRO.label == 'this is dummy label content').count())
+        eq_(1, DBSession.query(ContentRevisionRO).filter(ContentRevisionRO.description == 'This is some amazing test').count())
+        eq_(2, DBSession.query(ContentRevisionRO).filter(ContentRevisionRO.label == 'Hey ! Jon !').count())
+        eq_(1, DBSession.query(ContentRevisionRO).filter(ContentRevisionRO.description == 'What\'s up ?').count())
 
         res = api.search(['dummy', 'jon'])
         eq_(2, len(res.all()))
