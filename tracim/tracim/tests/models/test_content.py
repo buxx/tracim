@@ -15,6 +15,7 @@ class TestContent(TestStandard):
 
         DBSession.query(Content).filter(Content.id == content.id).one()
         # DBSession.query(Content).join(ContentRevisionRO).filter(Content.id == content.id)
+        # TODO: La query doit: filtrer sur RO (workspace == X) mais aussi se limiter au dernier enregistrement RO ! (le plus à jour)
 
     def test_update(self):
         created_content = self.test_create()
