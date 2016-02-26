@@ -20,11 +20,15 @@ class TestContent(TestStandard):
         workspace1 = DBSession.query(Workspace).filter(Workspace.label == 'TEST_WORKSPACE_1').one()
         workspace2 = DBSession.query(Workspace).filter(Workspace.label == 'TEST_WORKSPACE_2').one()
 
-        Content.revision_id
-        DBSession.query(Content).filter(Content.id == content1.id).one()
-        # DBSession.query(Content).join(ContentRevisionRO).filter(Content.id == content.id)
-        # DBSession.query(Content).join(ContentRevisionRO).filter(Content.revision_id == 1).all()
-        # TODO: La query doit: filtrer sur RO (workspace == X) mais aussi se limiter au dernier enregistrement RO ! (le plus à jour)
+        eq_(1, DBSession.query(Content).join(ContentRevisionRO).group_by(Content.id)\
+            .filter(Content.workspace == workspace1).count())
+        eq_(1, DBSession.query(Content).join(ContentRevisionRO).group_by(Content.id)\
+            .filter(Content.workspace == workspace2).count())
+
+        content1_from_query = DBSession.query(Content).join(ContentRevisionRO).group_by(Content.id)\
+            .filter(Content.workspace == workspace1).one()
+        eq_(content1.id, content1_from_query.id)
+        eq_('TEST_CONTENT_DESCRIPTION_1_UPDATED', content1_from_query.description)
 
     def test_update(self):
         created_content = self.test_create()

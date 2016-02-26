@@ -572,7 +572,6 @@ class Content(DeclarativeBase):
 
     __tablename__ = 'content'
     proxied_class = ContentRevisionRO
-    #__metaclass__ = ContentRevisionClassProxy
 
     id = Column(Integer, primary_key=True)
     revisions = relationship("ContentRevisionRO", back_populates="node")
