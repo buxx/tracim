@@ -4,27 +4,27 @@ import inspect
 
 from zope.sqlalchemy import ZopeTransactionExtension
 from sqlalchemy.orm import scoped_session, sessionmaker, Query as BaseQuery
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
 
 
 class Query(BaseQuery):
-
-    def query_for_virtual_content(self):
-        found = False
-        for entity_mapper in self._entities:
-            for entity in entity_mapper.entities:
-
-                if not inspect.isclass(entity):
-                    entity = entity.entity
-
-                if issubclass(entity, VirtualContent):
-                    found = True
-                    query = self.order_by(entity.revision_id.desc()).limit(1)
-
-        if not found:
-            raise NotVirtualContentQuery()
-
-        return query
+    pass
+    # def query_for_virtual_content(self):
+    #     found = False
+    #     for entity_mapper in self._entities:
+    #         for entity in entity_mapper.entities:
+    #
+    #             if not inspect.isclass(entity):
+    #                 entity = entity.entity
+    #
+    #             if issubclass(entity, VirtualContent):
+    #                 found = True
+    #                 query = self.order_by(entity.revision_id.desc()).limit(1)
+    #
+    #     if not found:
+    #         raise NotVirtualContentQuery()
+    #
+    #     return query
 
 
 class NotVirtualContentQuery(Exception):
@@ -41,7 +41,31 @@ DBSession = scoped_session(maker)
 # Base class for all of our model classes: By default, the data model is
 # defined with SQLAlchemy's declarative extension, but if you need more
 # control, you can switch to the traditional method.
-DeclarativeBase = declarative_base()
+
+
+class BaseModelMeta(DeclarativeMeta):
+    """
+    Meta class of model classes. Provide tracim feature.
+    """
+    def __getattr__(cls, key):
+        """
+        Try to return proxied_class attribute instead class attribute if proxied_class specified
+        """
+        if cls.proxied_class:
+            return getattr(cls.proxied_class, key)
+        raise AttributeError(key)
+
+
+class BaseModel(object):
+    """
+    Model base classes
+    """
+
+    """ Define this attribute with class will return these attributes if not defined in base class """
+    proxied_class = None
+
+
+DeclarativeBase = declarative_base(cls=BaseModel, metaclass=BaseModelMeta)
 
 # There are two convenient ways for you to spare some typing.
 # You can have a query property on all your model classes by doing this:
@@ -86,4 +110,4 @@ def init_model(engine):
 
 # Import your model modules here.
 from tracim.model.auth import User, Group, Permission
-from tracim.model.data import Content, VirtualContent
+from tracim.model.data import Content

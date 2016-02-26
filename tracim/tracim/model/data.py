@@ -561,9 +561,18 @@ class ContentRevisionRO(DeclarativeBase):
         return False
 
 
+class ContentRevisionClassProxy(type):
+    _proxied_class = ContentRevisionRO
+
+    def __getattr__(cls, key):
+        return getattr(cls._proxied_class, key)
+
+
 class Content(DeclarativeBase):
 
     __tablename__ = 'content'
+    proxied_class = ContentRevisionRO
+    #__metaclass__ = ContentRevisionClassProxy
 
     id = Column(Integer, primary_key=True)
     revisions = relationship("ContentRevisionRO", back_populates="node")
@@ -800,6 +809,8 @@ def prevent_content_revision_delete(session, flush_context, instances):
 
 @event.listens_for(Query, "before_compile", retval=True)
 def virtual_content_query_adapter(query):
+    return query
+
     try:
         return query.query_for_virtual_content()
     except NotVirtualContentQuery:

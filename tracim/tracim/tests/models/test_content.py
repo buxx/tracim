@@ -9,12 +9,21 @@ from tracim.tests import TestStandard
 class TestContent(TestStandard):
 
     def test_query(self):
-        content = self.test_create()
-        content.description = 'TEST_CONTENT_DESCRIPTION_1_UPDATED'
+        content1 = self.test_create()
+        content1.description = 'TEST_CONTENT_DESCRIPTION_1_UPDATED'
         DBSession.flush()
 
-        DBSession.query(Content).filter(Content.id == content.id).one()
+        content2 = self.test_create(key='2')
+        content2.description = 'TEST_CONTENT_DESCRIPTION_2_UPDATED'
+        DBSession.flush()
+
+        workspace1 = DBSession.query(Workspace).filter(Workspace.label == 'TEST_WORKSPACE_1').one()
+        workspace2 = DBSession.query(Workspace).filter(Workspace.label == 'TEST_WORKSPACE_2').one()
+
+        Content.revision_id
+        DBSession.query(Content).filter(Content.id == content1.id).one()
         # DBSession.query(Content).join(ContentRevisionRO).filter(Content.id == content.id)
+        # DBSession.query(Content).join(ContentRevisionRO).filter(Content.revision_id == 1).all()
         # TODO: La query doit: filtrer sur RO (workspace == X) mais aussi se limiter au dernier enregistrement RO ! (le plus à jour)
 
     def test_update(self):
@@ -80,7 +89,7 @@ class TestContent(TestStandard):
         eq_(0, DBSession.query(Workspace).filter(Workspace.label == 'TEST_WORKSPACE_%s' % key).count())
 
         user_admin = DBSession.query(User).filter(User.email == 'admin@admin.admin').one()
-        workspace = Workspace(label="TEST_WORKSPACE_1")
+        workspace = Workspace(label="TEST_WORKSPACE_%s" % key)
         DBSession.add(workspace)
         DBSession.flush()
         eq_(1, DBSession.query(Workspace).filter(Workspace.label == 'TEST_WORKSPACE_%s' % key).count())
