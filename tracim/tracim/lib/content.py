@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from sqlalchemy.sql.elements import and_
 
 __author__ = 'damien'
 
@@ -134,7 +135,17 @@ class ContentApi(object):
         return breadcrumb
 
     def __real_base_query(self, workspace: Workspace=None):
-        result = DBSession.query(Content)
+        join_sub_query = DBSession.query(ContentRevisionRO.revision_id)\
+            .filter(ContentRevisionRO.content_id == Content.id)\
+            .order_by(ContentRevisionRO.revision_id.desc())\
+            .limit(1)\
+            .correlate(Content)
+
+        base_query = DBSession.query(Content)\
+            .join(ContentRevisionRO, and_(Content.id == ContentRevisionRO.content_id,
+                                          ContentRevisionRO.revision_id == join_sub_query))
+
+        result = base_query
 
         if workspace:
             result = result.filter(Content.workspace_id==workspace.workspace_id)

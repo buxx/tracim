@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
+from sqlalchemy.orm import aliased
+from sqlalchemy.sql.elements import and_
 from sqlalchemy.testing import eq_
 
+from tracim.lib.content import ContentApi
 from tracim.model import DBSession, User, Content
-from tracim.model.data import ContentRevisionRO, Workspace, ActionDescription
+from tracim.model.data import ContentRevisionRO, Workspace, ActionDescription, ContentType
 from tracim.tests import TestStandard
 
 
@@ -20,15 +23,32 @@ class TestContent(TestStandard):
         workspace1 = DBSession.query(Workspace).filter(Workspace.label == 'TEST_WORKSPACE_1').one()
         workspace2 = DBSession.query(Workspace).filter(Workspace.label == 'TEST_WORKSPACE_2').one()
 
-        eq_(1, DBSession.query(Content).join(ContentRevisionRO).group_by(Content.id)\
-            .filter(Content.workspace == workspace1).count())
-        eq_(1, DBSession.query(Content).join(ContentRevisionRO).group_by(Content.id)\
-            .filter(Content.workspace == workspace2).count())
+        # content_alias = Content.__table__.alias('c', flat=True)
+        # content_alias = aliased(Content, alias='c', flat=True)
 
-        content1_from_query = DBSession.query(Content).join(ContentRevisionRO).group_by(Content.id)\
-            .filter(Content.workspace == workspace1).one()
+        join_sub_query = DBSession.query(ContentRevisionRO.revision_id)\
+            .filter(ContentRevisionRO.content_id == Content.id)\
+            .order_by(ContentRevisionRO.revision_id.desc())\
+            .limit(1)\
+            .correlate(Content)
+
+        base_query = DBSession.query(Content)\
+            .join(ContentRevisionRO, and_(Content.id == ContentRevisionRO.content_id,
+                                          ContentRevisionRO.revision_id == join_sub_query))
+
+        eq_(2, base_query.count())
+
+        eq_(1, base_query.filter(Content.workspace == workspace1).count())
+        eq_(1, base_query.filter(Content.workspace == workspace2).count())
+
+        content1_from_query = base_query.filter(Content.workspace == workspace1).one()
         eq_(content1.id, content1_from_query.id)
         eq_('TEST_CONTENT_DESCRIPTION_1_UPDATED', content1_from_query.description)
+
+        user_admin = DBSession.query(User).filter(User.email == 'admin@admin.admin').one()
+        api = ContentApi(None)
+
+        content1_from_api = api.get_one(content1.id, ContentType.Page, workspace1)
 
     def test_update(self):
         created_content = self.test_create()
@@ -54,7 +74,7 @@ class TestContent(TestStandard):
         first_content = self._create_content(
             owner=user_admin,
             workspace=workspace,
-            type='page',
+            type=ContentType.Page,
             label='TEST_CONTENT_1',
             description='TEST_CONTENT_DESCRIPTION_1',
             revision_type=ActionDescription.CREATION,

@@ -499,7 +499,10 @@ class ContentRevisionRO(DeclarativeBase):
     workspace_id = Column(Integer, ForeignKey('workspaces.workspace_id'), unique=False, nullable=True)
     workspace = relationship('Workspace', remote_side=[Workspace.workspace_id])
 
-    node = relationship("Content", back_populates="revisions")
+    parent_id = Column(Integer, ForeignKey('content.id'), nullable=True, default=None)
+    parent = relationship("Content", foreign_keys=[parent_id], back_populates="children")
+
+    node = relationship("Content", foreign_keys=[content_id], back_populates="revisions")
     owner = relationship('User', remote_side=[User.user_id])
 
     @classmethod
@@ -574,7 +577,12 @@ class Content(DeclarativeBase):
     proxied_class = ContentRevisionRO
 
     id = Column(Integer, primary_key=True)
-    revisions = relationship("ContentRevisionRO", back_populates="node")
+    revisions = relationship("ContentRevisionRO",
+                             foreign_keys=[ContentRevisionRO.content_id],
+                             back_populates="node")
+    children = relationship("ContentRevisionRO",
+                            foreign_keys=[ContentRevisionRO.parent_id],
+                            back_populates="parent")
 
     def __init__(self, *args, **kwargs):
         if args:
