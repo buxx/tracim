@@ -22,7 +22,7 @@ from tracim.lib.notifications import NotifierFactory
 from tracim.lib.utils import SameValueError
 from tracim.model import DBSession
 from tracim.model.auth import User
-from tracim.model.data import ActionDescription
+from tracim.model.data import ActionDescription, new_revision
 from tracim.model.data import BreadcrumbItem
 from tracim.model.data import ContentStatus
 from tracim.model.data import ContentRevisionRO
@@ -499,7 +499,6 @@ class ContentApi(object):
         content.is_archived = False
         content.revision_type = ActionDescription.UNARCHIVING
 
-
     def delete(self, content: Content):
         content.owner = self._user
         content.is_deleted = True
@@ -587,7 +586,7 @@ class ContentApi(object):
 
         if not action_description:
             # See if the last action has been modified
-            if content.revision_type==None or len(get_history(content, 'revision_type'))<=0:
+            if content.revision_type==None or len(get_history(content.revision, 'revision_type'))<=0:
                 # The action has not been modified, so we set it to default edition
                 action_description = ActionDescription.EDITION
 

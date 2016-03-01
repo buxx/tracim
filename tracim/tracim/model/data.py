@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 import datetime as datetime_root
 import json
 
+from decorator import contextmanager
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy import Column, inspect, String
 from sqlalchemy import func
@@ -31,7 +32,8 @@ from sqlalchemy.types import Unicode
 
 from tg.i18n import lazy_ugettext as l_, ugettext as _
 
-from tracim.model import DeclarativeBase, DBSession, NotVirtualContentQuery
+from tracim.lib.exception import ContentRevisionUpdateError
+from tracim.model import DeclarativeBase, DBSession, NotVirtualContentQuery, RevisionsIntegrity
 from tracim.model.auth import User
 
 class BreadcrumbItem(object):
@@ -486,7 +488,7 @@ class ContentRevisionRO(DeclarativeBase):
     description = Column(Text(), unique=False, nullable=False, default='')
     file_name = Column(Unicode(255),  unique=False, nullable=False, default='')
     file_mimetype = Column(Unicode(255),  unique=False, nullable=False, default='')
-    file_content = deferred(Column(LargeBinary(), unique=False, nullable=True, default=None))
+    file_content = deferred(Column(LargeBinary(), unique=False, nullable=True))
 
     type = Column(Unicode(32), unique=False, nullable=False)
     status = Column(Unicode(32), unique=False, nullable=False, default=ContentStatus.OPEN)  # TODO - B.S. FIXME DEV !
@@ -505,30 +507,43 @@ class ContentRevisionRO(DeclarativeBase):
     node = relationship("Content", foreign_keys=[content_id], back_populates="revisions")
     owner = relationship('User', remote_side=[User.user_id])
 
+    """ List of column copied when make a new revision from another """
+    _cloned_columns = (
+        'content_id', 'owner_id', 'label', 'description', 'file_name', 'file_mimetype',
+        'file_content', 'type', 'status', 'created', 'updated', 'is_deleted', 'is_archived',
+        'revision_type', 'workspace_id', 'workspace', 'parent_id', 'parent', 'node', 'owner'
+    )
+
     @classmethod
     def new_from(cls, revision):
-        columns = (column.key for column in inspect(cls).attrs if column.key != 'revision_id')
-        new_revision = cls()
+        new_rev = cls()
 
-        for column_name in columns:
+        for column_name in cls._cloned_columns:
             column_value = getattr(revision, column_name)
-            setattr(new_revision, column_name, column_value)
+            setattr(new_rev, column_name, column_value)
 
-        return new_revision
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        """ If True, attribute revision has been modified and revision must be created instead updated"""
-        self.altered = False
+        return new_rev
 
     def __setattr__(self, key, value):
-        if key in ('_sa_instance_state', 'altered'):  # Prevent infinite loop from SQLAlchemy code and altered set
+        if key in ('_sa_instance_state'):  # Prevent infinite loop from SQLAlchemy code and altered set
             return super().__setattr__(key, value)
 
-        if self.revision_id:
-            self.altered = True
+        if inspect(self).has_identity \
+                and key in self._cloned_columns \
+                and not RevisionsIntegrity.is_updatable(self):
+                raise ContentRevisionUpdateError(
+                    "Can't modify revision. To work on new revision use tracim.model.data.new_revision " +
+                    "context manager.")
 
         super().__setattr__(key, value)
+
+    # def open_to_update(self):
+    #     if inspect(self).has_identity:
+    #         raise Exception("Revision already got an identity. It can't be updated") # TODO: Exception class
+    #     self._open_to_update = True
+    #
+    # def close_to_update(self):
+    #     self._open_to_update = False
 
     def get_status(self):
         return ContentStatus(self.status)
@@ -584,30 +599,348 @@ class Content(DeclarativeBase):
                             foreign_keys=[ContentRevisionRO.parent_id],
                             back_populates="parent")
 
-    def __init__(self, *args, **kwargs):
-        if args:
-            raise Exception("You can't provide positional arguments in Content instantation. Use named arguments.")
-        for attribute_name in kwargs:
-            setattr(self, attribute_name, kwargs[attribute_name])
+    # def __init__(self, *args, **kwargs):
+    #     if args:
+    #         raise Exception("You can't provide positional arguments in Content instantation. Use named arguments.")
+    #     super().__init__()
+    #     for attribute_name in kwargs:
+    #         setattr(self, attribute_name, kwargs[attribute_name])
 
-    def __getattr__(self, item):
-        if item is '_sa_instance_state':  # Prevent infinite loop from SQLAlchemy code
-            return super().__getattr__(item)
+    # def __getattribute__(self, item):
+    #     try:
+    #         return DeclarativeBase.__getattribute__(self, item)
+    #     except AttributeError as exc_self:
+    #         try:
+    #             revision = DeclarativeBase.__getattribute__(self, 'revision')
+    #             return getattr(revision, item)
+    #         except AttributeError:
+    #             raise exc_self
 
-        revision = self.get_current_revision()
-        return getattr(revision, item)
+    # def __getattr__(self, item):
+    #     if item in ['_sa_instance_state']:
+    #         return super().__getattr__(item)
+    #     try:
+    #         return getattr(self.revision, item)
+    #     except AttributeError:
+    #         raise AttributeError(item)
 
-    def __setattr__(self, key, value):
-        if key is '_sa_instance_state':  # Prevent infinite loop from SQLAlchemy code
-            return super().__setattr__(key, value)
+    # def __getattr__(self, item):
+    #     # columns = [attr.key for attr in inspect(self).attrs]
+    #     if item in ['_sa_instance_state']:  # Prevent infinite loop from SQLAlchemy code
+    #         return super().__getattr__(item)
+    #
+    #     return getattr(self.revision, item)
 
-        revision = self.get_current_revision()
-        return setattr(revision, key, value)
+    # def __setattr__(self, key, value):
+    #     if key is '_sa_instance_state':  # Prevent infinite loop from SQLAlchemy code
+    #         return super().__setattr__(key, value)
+    #
+    #     revision = self.get_current_revision()
+    #     return setattr(self.revision, key, value)
+
+    #revision_id = Column(Integer, primary_key=True)
+    #content_id = Column(Integer, ForeignKey('content.id'))
+    #owner_id = Column(Integer, ForeignKey('users.user_id'), nullable=True)
+
+    #label = Column(Unicode(1024), unique=False, nullable=False)
+    #description = Column(Text(), unique=False, nullable=False, default='')
+    #file_name = Column(Unicode(255),  unique=False, nullable=False, default='')
+    #file_mimetype = Column(Unicode(255),  unique=False, nullable=False, default='')
+    #file_content = deferred(Column(LargeBinary(), unique=False, nullable=True, default=None))
+
+    #type = Column(Unicode(32), unique=False, nullable=False)
+    #status = Column(Unicode(32), unique=False, nullable=False, default=ContentStatus.OPEN)  # TODO - B.S. FIXME DEV !
+    #created = Column(DateTime, unique=False, nullable=False, default=datetime.now())
+    #updated = Column(DateTime, unique=False, nullable=False, default=datetime.now())
+    #is_deleted = Column(Boolean, unique=False, nullable=False, default=False)
+    #is_archived = Column(Boolean, unique=False, nullable=False, default=False)
+    #revision_type = Column(Unicode(32), unique=False, nullable=False, default='')
+
+    #workspace_id = Column(Integer, ForeignKey('workspaces.workspace_id'), unique=False, nullable=True)
+    #workspace = relationship('Workspace', remote_side=[Workspace.workspace_id])
+
+    #parent_id = Column(Integer, ForeignKey('content.id'), nullable=True, default=None)
+    #parent = relationship("Content", foreign_keys=[parent_id], back_populates="children")
+
+    #node = relationship("Content", foreign_keys=[content_id], back_populates="revisions")
+    #owner = relationship('User', remote_side=[User.user_id])
+
+    @hybrid_property
+    def content_id(self):
+        return self.revision.content_id
+
+    @content_id.setter
+    def content_id(self, value):
+        self.revision.content_id = value
+
+    @content_id.expression
+    def content_id(cls):
+        return ContentRevisionRO.content_id
+
+    @hybrid_property
+    def revision_id(self):
+        return self.revision.revision_id
+
+    @revision_id.setter
+    def revision_id(self, value):
+        self.revision.revision_id = value
+
+    @revision_id.expression
+    def revision_id(cls):
+        return ContentRevisionRO.revision_id
+
+    @hybrid_property
+    def owner_id(self):
+        return self.revision.owner_id
+
+    @owner_id.setter
+    def owner_id(self, value):
+        self.revision.owner_id = value
+
+    @owner_id.expression
+    def owner_id(cls):
+        return ContentRevisionRO.owner_id
+
+    @hybrid_property
+    def label(self):
+        return self.revision.label
+
+    @label.setter
+    def label(self, value):
+        self.revision.label = value
+
+    @label.expression
+    def label(cls):
+        return ContentRevisionRO.label
+
+    @hybrid_property
+    def description(self):
+        return self.revision.description
+
+    @description.setter
+    def description(self, value):
+        self.revision.description = value
+
+    @description.expression
+    def description(cls):
+        return ContentRevisionRO.description
+
+    @hybrid_property
+    def file_name(self):
+        return self.revision.file_name
+
+    @file_name.setter
+    def file_name(self, value):
+        self.revision.file_name = value
+
+    @file_name.expression
+    def file_name(cls):
+        return ContentRevisionRO.file_name
+
+    @hybrid_property
+    def file_mimetype(self):
+        return self.revision.file_mimetype
+
+    @file_mimetype.setter
+    def file_mimetype(self, value):
+        self.revision.file_mimetype = value
+
+    @file_mimetype.expression
+    def file_mimetype(cls):
+        return ContentRevisionRO.file_mimetype
+
+    @hybrid_property
+    def file_content(self):
+        return self.revision.file_content
+
+    @file_content.setter
+    def file_content(self, value):
+        self.revision.file_content = value
+
+    @file_content.expression
+    def file_content(cls):
+        return ContentRevisionRO.file_content
+
+    @hybrid_property
+    def type(self):
+        return self.revision.type
+
+    @type.setter
+    def type(self, value):
+        self.revision.type = value
+
+    @type.expression
+    def type(cls):
+        return ContentRevisionRO.type
+
+    @hybrid_property
+    def status(self):
+        return self.revision.status
+
+    @status.setter
+    def status(self, value):
+        self.revision.status = value
+
+    @status.expression
+    def status(cls):
+        return ContentRevisionRO.status
+
+    @hybrid_property
+    def created(self):
+        return self.revision.created
+
+    @created.setter
+    def created(self, value):
+        self.revision.created = value
+
+    @created.expression
+    def created(cls):
+        return ContentRevisionRO.created
+
+    @hybrid_property
+    def updated(self):
+        return self.revision.updated
+
+    @updated.setter
+    def updated(self, value):
+        self.revision.updated = value
+
+    @updated.expression
+    def updated(cls):
+        return ContentRevisionRO.updated
+
+    @hybrid_property
+    def is_deleted(self):
+        return self.revision.is_deleted
+
+    @is_deleted.setter
+    def is_deleted(self, value):
+        self.revision.is_deleted = value
+
+    @is_deleted.expression
+    def is_deleted(cls):
+        return ContentRevisionRO.is_deleted
+
+    @hybrid_property
+    def is_archived(self):
+        return self.revision.is_archived
+
+    @is_archived.setter
+    def is_archived(self, value):
+        self.revision.is_archived = value
+
+    @is_archived.expression
+    def is_archived(cls):
+        return ContentRevisionRO.is_archived
+
+    @hybrid_property
+    def revision_type(self):
+        return self.revision.revision_type
+
+    @revision_type.setter
+    def revision_type(self, value):
+        self.revision.revision_type = value
+
+    @revision_type.expression
+    def revision_type(cls):
+        return ContentRevisionRO.revision_type
+
+    @hybrid_property
+    def workspace_id(self):
+        return self.revision.workspace_id
+
+    @workspace_id.setter
+    def workspace_id(self, value):
+        self.revision.workspace_id = value
+
+    @workspace_id.expression
+    def workspace_id(cls):
+        return ContentRevisionRO.workspace_id
+
+    @hybrid_property
+    def workspace(self):
+        return self.revision.workspace
+
+    @workspace.setter
+    def workspace(self, value):
+        self.revision.workspace = value
+
+    @workspace.expression
+    def workspace(cls):
+        return ContentRevisionRO.workspace
+
+    @hybrid_property
+    def parent_id(self):
+        return self.revision.parent_id
+
+    @parent_id.setter
+    def parent_id(self, value):
+        self.revision.parent_id = value
+
+    @parent_id.expression
+    def parent_id(cls):
+        return ContentRevisionRO.parent_id
+
+    @hybrid_property
+    def parent(self):
+        return self.revision.parent
+
+    @parent.setter
+    def parent(self, value):
+        self.revision.parent = value
+
+    @parent.expression
+    def parent(cls):
+        return ContentRevisionRO.parent
+
+    @hybrid_property
+    def node(self):
+        return self.revision.node
+
+    @node.setter
+    def node(self, value):
+        self.revision.node = value
+
+    @node.expression
+    def node(cls):
+        return ContentRevisionRO.node
+
+    @hybrid_property
+    def owner(self):
+        return self.revision.owner
+
+    @owner.setter
+    def owner(self, value):
+        self.revision.owner = value
+
+    @owner.expression
+    def owner(cls):
+        return ContentRevisionRO.owner
+
+    @property
+    def revision(self):
+        return self.get_current_revision()
 
     def get_current_revision(self):
         if not self.revisions:
+            return self.new_revision()
+
+        # If last revisions revision don't have revision_id, return it we just add it.
+        if self.revisions[-1].revision_id is None:
+            return self.revisions[-1]
+
+        # Revisions should be ordred by revision_id but we ensure that here
+        revisions = sorted(self.revisions, key=lambda revision: revision.revision_id)
+        return revisions[-1]
+
+    def new_revision(self):
+        if not self.revisions:
             self.revisions.append(ContentRevisionRO())
-        return self.revisions[-1]
+            return self.revisions[0]
+
+        new_rev = ContentRevisionRO.new_from(self.get_current_revision())
+        self.revisions.append(new_rev)
+        return new_rev
 
     def get_valid_children(self, content_types: list=None) -> ['Content']:
         for child in self.children:
@@ -791,14 +1124,38 @@ class Content(DeclarativeBase):
         return url_template.format(wid=wid, fid=fid, ctype=ctype, cid=cid)
 
 
-@event.listens_for(DBSession, 'before_flush')
-def prevent_content_revision_updates(session, flush_context, instances):
-    for instance in session.dirty:
-        if isinstance(instance, ContentRevisionRO) and instance.altered:
-            previous_revision = instance
-            new_revision = ContentRevisionRO.new_from(instance)
-            session.expunge(previous_revision)
-            session.add(new_revision)
+# @event.listens_for(DBSession, 'before_flush')
+# def prevent_content_revision_updates(session, flush_context, instances):
+#     for instance in session.dirty:
+#
+#         # if isinstance(instance, ContentRevisionRO) and session.is_modified(instance):
+#         #
+#         #     raise Exception("DO NOT UPDATE")  # TODO: Exception class + message (with how to)
+#
+#         if isinstance(instance, ContentRevisionRO) and hasattr(instance, 'altered') and instance.altered:
+#             raise Exception("DO NOT UPDATE")  # TODO: Exception class + message (with how to)
+#
+#         #
+#         #     with open('/tmp/foo', 'a') as f:
+#         #         # from pprint import pprint
+#         #         # pprint(vars(flush_context), f)
+#         #         print(session.is_modified(instance), file=f)
+#         #         print("\n", file=f)
+#         #     previous_revision = instance
+#         #     new_revision = ContentRevisionRO.new_from(instance)
+#         #     session.expunge(previous_revision)
+#         #     session.add(new_revision)
+
+
+# @event.listens_for(DBSession, 'before_commit')
+# def prevent_content_revision_updates(session):
+#     for instance in session.dirty:
+#         # TODO: modifier (inspect) ... ?
+#         if isinstance(instance, ContentRevisionRO) and inspect(instance).modified:  # and hasattr(instance, 'altered') and instance.altered:
+#             previous_revision = instance
+#             new_revision = ContentRevisionRO.new_from(instance)
+#             session.expunge(previous_revision)
+#             session.add(new_revision)
 
 # TODO: REFACT prevent_content_revision_updates AND prevent_content_revision_delete
 
@@ -807,6 +1164,7 @@ def prevent_content_revision_updates(session, flush_context, instances):
 def prevent_content_revision_delete(session, flush_context, instances):
     for instance in session.deleted:
         if isinstance(instance, ContentRevisionRO) and instance.revision_id is not None:
+            raise Exception("DO NOT UPDATE")  # TODO: Exception class + message (with how to)
             previous_revision = instance
             new_revision = ContentRevisionRO.new_from(instance)
             new_revision.is_deleted = True
@@ -824,8 +1182,16 @@ def virtual_content_query_adapter(query):
         return query
 
 
-class VirtualContent(ContentRevisionRO):
-    pass
+@contextmanager
+def new_revision(content):
+    with DBSession.no_autoflush:
+        try:
+            if inspect(content.revision).has_identity:
+                content.new_revision()
+            RevisionsIntegrity.add_to_updatable(content.revision)
+            yield content.revision
+        finally:
+            RevisionsIntegrity.remove_from_updatable(content.revision)
 
 
 class RevisionReadStatus(DeclarativeBase):

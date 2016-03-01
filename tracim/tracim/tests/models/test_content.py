@@ -1,23 +1,32 @@
 # -*- coding: utf-8 -*-
+from nose.tools import raises
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql.elements import and_
 from sqlalchemy.testing import eq_
 
 from tracim.lib.content import ContentApi
+from tracim.lib.exception import ContentRevisionUpdateError
 from tracim.model import DBSession, User, Content
-from tracim.model.data import ContentRevisionRO, Workspace, ActionDescription, ContentType
+from tracim.model.data import ContentRevisionRO, Workspace, ActionDescription, ContentType, new_revision
 from tracim.tests import TestStandard
 
 
 class TestContent(TestStandard):
 
+    @raises(ContentRevisionUpdateError)
+    def test_update_without_prepare(self):
+        content1 = self.test_create()
+        content1.description = 'FOO'  # Raise ContentRevisionUpdateError because revision can't be updated
+
     def test_query(self):
         content1 = self.test_create()
-        content1.description = 'TEST_CONTENT_DESCRIPTION_1_UPDATED'
+        with new_revision(content1):
+            content1.description = 'TEST_CONTENT_DESCRIPTION_1_UPDATED'
         DBSession.flush()
 
         content2 = self.test_create(key='2')
-        content2.description = 'TEST_CONTENT_DESCRIPTION_2_UPDATED'
+        with new_revision(content2):
+            content2.description = 'TEST_CONTENT_DESCRIPTION_2_UPDATED'
         DBSession.flush()
 
         workspace1 = DBSession.query(Workspace).filter(Workspace.label == 'TEST_WORKSPACE_1').one()
@@ -55,10 +64,19 @@ class TestContent(TestStandard):
         content = DBSession.query(Content).filter(Content.id == created_content.id).one()
         eq_(1, DBSession.query(ContentRevisionRO).filter(ContentRevisionRO.label == 'TEST_CONTENT_1').count())
 
-        content.description = 'TEST_CONTENT_DESCRIPTION_1_UPDATED'
+        with new_revision(content):
+            content.description = 'TEST_CONTENT_DESCRIPTION_1_UPDATED'
         DBSession.flush()
 
         eq_(2, DBSession.query(ContentRevisionRO).filter(ContentRevisionRO.label == 'TEST_CONTENT_1').count())
+        eq_(1, DBSession.query(Content).filter(Content.id == created_content.id).count())
+
+        with new_revision(content):
+            content.description = 'TEST_CONTENT_DESCRIPTION_1_UPDATED_2'
+            content.label = 'TEST_CONTENT_1_UPDATED_2'
+        DBSession.flush()
+
+        eq_(1, DBSession.query(ContentRevisionRO).filter(ContentRevisionRO.label == 'TEST_CONTENT_1_UPDATED_2').count())
         eq_(1, DBSession.query(Content).filter(Content.id == created_content.id).count())
 
     def test_creates(self):
@@ -96,10 +114,7 @@ class TestContent(TestStandard):
             type='page',
             label='TEST_CONTENT_2',
             description='TEST_CONTENT_DESCRIPTION_2',
-            revision_type=ActionDescription.CREATION,
-            is_deleted=False,  # TODO: pk ?
-            is_archived=False,  # TODO: pk ?
-            #file_content=None,  # TODO: pk ? (J'ai du mettre nullable=True)
+            revision_type=ActionDescription.CREATION
         )
 
         eq_(1, DBSession.query(ContentRevisionRO).filter(ContentRevisionRO.label == 'TEST_CONTENT_2').count())
@@ -124,10 +139,7 @@ class TestContent(TestStandard):
             type='page',
             label='TEST_CONTENT_%s' % key,
             description='TEST_CONTENT_DESCRIPTION_%s' % key,
-            revision_type=ActionDescription.CREATION,
-            is_deleted=False,  # TODO: pk ?
-            is_archived=False,  # TODO: pk ?
-            #file_content=None,  # TODO: pk ? (J'ai du mettre nullable=True)
+            revision_type=ActionDescription.CREATION
         )
 
         eq_(1, DBSession.query(ContentRevisionRO).filter(ContentRevisionRO.label == 'TEST_CONTENT_%s' % key).count())

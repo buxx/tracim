@@ -3,7 +3,7 @@
 import inspect
 
 from zope.sqlalchemy import ZopeTransactionExtension
-from sqlalchemy.orm import scoped_session, sessionmaker, Query as BaseQuery
+from sqlalchemy.orm import scoped_session, sessionmaker, Query as BaseQuery, Session as BaseSession
 from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
 
 
@@ -30,6 +30,26 @@ class Query(BaseQuery):
 class NotVirtualContentQuery(Exception):
     pass
 
+
+class RevisionsIntegrity(object):
+    """
+    TODO: Truc plus propre qu'une classe statique ? DBSession. serait bien: how to override Session class ?
+    """
+    _updatable_revisions = []
+
+    @classmethod
+    def add_to_updatable(cls, revision):
+        # TODO: Test if has_identity ?
+        if revision not in cls._updatable_revisions:
+            cls._updatable_revisions.append(revision)
+
+    @classmethod
+    def remove_from_updatable(cls, revision):
+        cls._updatable_revisions.remove(revision)
+
+    @classmethod
+    def is_updatable(cls, revision):
+        return revision in cls._updatable_revisions
 
 # Global session manager: DBSession() returns the Thread-local
 # session object appropriate for the current web request.
