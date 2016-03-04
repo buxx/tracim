@@ -3,32 +3,8 @@
 import inspect
 
 from zope.sqlalchemy import ZopeTransactionExtension
-from sqlalchemy.orm import scoped_session, sessionmaker, Query as BaseQuery, Session as BaseSession
-from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
-
-
-class Query(BaseQuery):
-    pass
-    # def query_for_virtual_content(self):
-    #     found = False
-    #     for entity_mapper in self._entities:
-    #         for entity in entity_mapper.entities:
-    #
-    #             if not inspect.isclass(entity):
-    #                 entity = entity.entity
-    #
-    #             if issubclass(entity, VirtualContent):
-    #                 found = True
-    #                 query = self.order_by(entity.revision_id.desc()).limit(1)
-    #
-    #     if not found:
-    #         raise NotVirtualContentQuery()
-    #
-    #     return query
-
-
-class NotVirtualContentQuery(Exception):
-    pass
+from sqlalchemy.orm import scoped_session, sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
 
 
 class RevisionsIntegrity(object):
@@ -54,38 +30,14 @@ class RevisionsIntegrity(object):
 # Global session manager: DBSession() returns the Thread-local
 # session object appropriate for the current web request.
 maker = sessionmaker(autoflush=True, autocommit=False,
-                     extension=ZopeTransactionExtension(),
-                     query_cls=Query)
+                     extension=ZopeTransactionExtension())
 DBSession = scoped_session(maker)
 
 # Base class for all of our model classes: By default, the data model is
 # defined with SQLAlchemy's declarative extension, but if you need more
 # control, you can switch to the traditional method.
 
-
-class BaseModelMeta(DeclarativeMeta):
-    """
-    Meta class of model classes. Provide tracim feature.
-    """
-    def __getattr__(cls, key):
-        """
-        Try to return proxied_class attribute instead class attribute if proxied_class specified
-        """
-        if cls.proxied_class:
-            return getattr(cls.proxied_class, key)
-        raise AttributeError(key)
-
-
-class BaseModel(object):
-    """
-    Model base classes
-    """
-
-    """ Define this attribute with class will return these attributes if not defined in base class """
-    proxied_class = None
-
-
-DeclarativeBase = declarative_base(cls=BaseModel, metaclass=BaseModelMeta)
+DeclarativeBase = declarative_base()
 
 # There are two convenient ways for you to spare some typing.
 # You can have a query property on all your model classes by doing this:

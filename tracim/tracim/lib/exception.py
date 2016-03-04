@@ -13,6 +13,10 @@ class ContentRevisionUpdateError(RuntimeError):
     pass
 
 
+class ContentRevisionDeleteError(RuntimeError):
+    pass
+
+
 class ConfigurationError(TracimError):
     pass
 

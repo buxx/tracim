@@ -11,11 +11,10 @@ from decorator import contextmanager
 from sqlalchemy import Column, inspect
 from sqlalchemy import ForeignKey
 from sqlalchemy import Sequence
-from sqlalchemy import event
 from sqlalchemy import func
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import backref, Query
+from sqlalchemy.orm import backref
 from sqlalchemy.orm import deferred
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.collections import attribute_mapped_collection
@@ -28,7 +27,7 @@ from sqlalchemy.types import Unicode
 from tg.i18n import lazy_ugettext as l_, ugettext as _
 
 from tracim.lib.exception import ContentRevisionUpdateError
-from tracim.model import DeclarativeBase, DBSession, NotVirtualContentQuery, RevisionsIntegrity
+from tracim.model import DeclarativeBase, DBSession, RevisionsIntegrity
 from tracim.model.auth import User
 
 
@@ -541,14 +540,6 @@ class ContentRevisionRO(DeclarativeBase):
 
         super().__setattr__(key, value)
 
-    # def open_to_update(self):
-    #     if inspect(self).has_identity:
-    #         raise Exception("Revision already got an identity. It can't be updated") # TODO: Exception class
-    #     self._open_to_update = True
-    #
-    # def close_to_update(self):
-    #     self._open_to_update = False
-
     def get_status(self):
         return ContentStatus(self.status)
 
@@ -593,7 +584,6 @@ class ContentRevisionClassProxy(type):
 class Content(DeclarativeBase):
 
     __tablename__ = 'content'
-    proxied_class = ContentRevisionRO # TODO: DELTE IT
 
     revision_to_serialize = -0  # This flag allow to serialize a given revision if required by the user
 
@@ -950,7 +940,6 @@ class Content(DeclarativeBase):
             'html.parser'  # Fixes hanging bug - http://stackoverflow.com/questions/12618567/problems-running-beautifulsoup4-within-apache-mod-python-django
         )
 
-
         for link in soup.findAll('a'):
             href = link.get('href')
             label = link.contents
@@ -960,7 +949,6 @@ class Content(DeclarativeBase):
         sorted_links = sorted(links, key=lambda link: link.label if link.label else link.href, reverse=True)
         ## FIXME - Does this return a sorted list ???!
         return sorted_links
-
 
     def get_child_nb(self, content_type: ContentType, content_status = ''):
         child_nb = 0
@@ -1083,28 +1071,6 @@ class Content(DeclarativeBase):
         ctype = content.type
         cid = content.content_id
         return url_template.format(wid=wid, fid=fid, ctype=ctype, cid=cid)
-
-
-@event.listens_for(DBSession, 'before_flush')
-def prevent_content_revision_delete(session, flush_context, instances):
-    for instance in session.deleted:
-        if isinstance(instance, ContentRevisionRO) and instance.revision_id is not None:
-            raise Exception("DO NOT UPDATE")  # TODO: Exception class + message (with how to)
-            previous_revision = instance
-            new_revision = ContentRevisionRO.new_from(instance)
-            new_revision.is_deleted = True
-            session.expunge(previous_revision)
-            session.add(new_revision)
-
-
-@event.listens_for(Query, "before_compile", retval=True)
-def virtual_content_query_adapter(query):
-    return query
-
-    try:
-        return query.query_for_virtual_content()
-    except NotVirtualContentQuery:
-        return query
 
 
 @contextmanager
