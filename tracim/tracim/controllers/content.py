@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import sys
+
 __author__ = 'damien'
 
 from cgi import FieldStorage
@@ -760,9 +762,8 @@ class UserWorkspaceFolderRestController(TIMRestControllerWithBreadcrumb):
                 file = True if can_contain_files=='on' else False,
                 page = True if can_contain_pages=='on' else False
             )
-            with new_revision(folder):
-                api.set_allowed_content(folder, subcontent)
-                api.save(folder)
+            api.set_allowed_content(folder, subcontent)
+            api.save(folder)
 
             tg.flash(_('Folder created'), CST.STATUS_OK)
             redirect_url = redirect_url_tmpl.format(tmpl_context.workspace_id, folder.content_id)
@@ -770,7 +771,8 @@ class UserWorkspaceFolderRestController(TIMRestControllerWithBreadcrumb):
             logger.error(self, 'An unexpected exception has been catched. Look at the traceback below.')
             traceback.print_exc()
 
-            tg.flash(_('Folder not created: {}').format(e.with_traceback()), CST.STATUS_ERROR)
+            tb = sys.exc_info()[2]
+            tg.flash(_('Folder not created: {}').format(e.with_traceback(tb)), CST.STATUS_ERROR)
             if parent_id:
                 redirect_url = redirect_url_tmpl.format(tmpl_context.workspace_id, parent_id)
             else:

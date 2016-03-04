@@ -32,9 +32,8 @@ class TestContent(TestStandard):
         workspace1 = DBSession.query(Workspace).filter(Workspace.label == 'TEST_WORKSPACE_1').one()
         workspace2 = DBSession.query(Workspace).filter(Workspace.label == 'TEST_WORKSPACE_2').one()
 
-        # content_alias = Content.__table__.alias('c', flat=True)
-        # content_alias = aliased(Content, alias='c', flat=True)
-
+        # To get Content in database we have to join Content and ContentRevisionRO with particular condition:
+        # Join have to be on most recent revision
         join_sub_query = DBSession.query(ContentRevisionRO.revision_id)\
             .filter(ContentRevisionRO.content_id == Content.id)\
             .order_by(ContentRevisionRO.revision_id.desc())\
@@ -111,7 +110,7 @@ class TestContent(TestStandard):
         second_content = self._create_content(
             owner=user_admin,
             workspace=workspace,
-            type='page',
+            type=ContentType.Page,
             label='TEST_CONTENT_2',
             description='TEST_CONTENT_DESCRIPTION_2',
             revision_type=ActionDescription.CREATION
@@ -136,7 +135,7 @@ class TestContent(TestStandard):
         created_content = self._create_content(
             owner=user_admin,
             workspace=workspace,
-            type='page',
+            type=ContentType.Page,
             label='TEST_CONTENT_%s' % key,
             description='TEST_CONTENT_DESCRIPTION_%s' % key,
             revision_type=ActionDescription.CREATION

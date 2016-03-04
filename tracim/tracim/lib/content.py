@@ -15,14 +15,13 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.attributes import get_history
 from sqlalchemy import desc
 from sqlalchemy import distinct
-from sqlalchemy import not_
 from sqlalchemy import or_
 from tracim.lib import cmp_to_key
 from tracim.lib.notifications import NotifierFactory
 from tracim.lib.utils import SameValueError
 from tracim.model import DBSession
 from tracim.model.auth import User
-from tracim.model.data import ActionDescription, new_revision
+from tracim.model.data import ActionDescription
 from tracim.model.data import BreadcrumbItem
 from tracim.model.data import ContentStatus
 from tracim.model.data import ContentRevisionRO
@@ -77,6 +76,19 @@ class ContentApi(object):
         self._show_deleted = show_deleted
         self._show_all_type_of_contents_in_treeview = all_content_in_treeview
 
+    @classmethod
+    def get_revision_join(cls):
+        return and_(Content.id == ContentRevisionRO.content_id,
+                    ContentRevisionRO.revision_id == DBSession.query(
+                        ContentRevisionRO.revision_id)
+                    .filter(ContentRevisionRO.content_id == Content.id)
+                    .order_by(ContentRevisionRO.revision_id.desc())
+                    .limit(1)
+                    .correlate(Content))
+
+    @classmethod
+    def get_base_query(cls):
+        return DBSession.query(Content).join(ContentRevisionRO, cls.get_revision_join())
 
     @classmethod
     def sort_tree_items(cls, content_list: [NodeTreeItem])-> [Content]:
@@ -135,15 +147,7 @@ class ContentApi(object):
         return breadcrumb
 
     def __real_base_query(self, workspace: Workspace=None):
-        join_sub_query = DBSession.query(ContentRevisionRO.revision_id)\
-            .filter(ContentRevisionRO.content_id == Content.id)\
-            .order_by(ContentRevisionRO.revision_id.desc())\
-            .limit(1)\
-            .correlate(Content)
-
-        base_query = DBSession.query(Content)\
-            .join(ContentRevisionRO, and_(Content.id == ContentRevisionRO.content_id,
-                                          ContentRevisionRO.revision_id == join_sub_query))
+        base_query = self.get_base_query()
 
         result = base_query
 
@@ -648,7 +652,7 @@ class ContentApi(object):
         filter_group_desc = list(Content.description.ilike('%{}%'.format(keyword)) for keyword in keywords)
         title_keyworded_items = self._hard_filtered_base_query().\
             filter(or_(*(filter_group_label+filter_group_desc))).\
-            options(joinedload('children')).\
+            options(joinedload('children_revisions')).\
             options(joinedload('parent'))
 
         return title_keyworded_items

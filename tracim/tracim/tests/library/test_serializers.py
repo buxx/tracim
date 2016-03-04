@@ -13,7 +13,7 @@ import tg
 from tracim.model import DBSession
 
 from tg.util import LazyString
-from tracim.model.data import Content
+from tracim.model.data import Content, ContentStatus
 from tracim.model.data import ContentType
 from tracim.model.data import Workspace
 

@@ -1,40 +1,36 @@
 # -*- coding: utf-8 -*-
 
-import tg
-from datetime import datetime
-from babel.dates import format_timedelta
-
-from bs4 import BeautifulSoup
 import datetime as datetime_root
 import json
+from datetime import datetime
 
+import tg
+from babel.dates import format_timedelta
+from bs4 import BeautifulSoup
 from decorator import contextmanager
-from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy import Column, inspect, String
-from sqlalchemy import func
+from sqlalchemy import Column, inspect
 from sqlalchemy import ForeignKey
 from sqlalchemy import Sequence
 from sqlalchemy import event
-
+from sqlalchemy import func
+from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.hybrid import hybrid_property
-
 from sqlalchemy.orm import backref, Query
-from sqlalchemy.orm import relationship
 from sqlalchemy.orm import deferred
+from sqlalchemy.orm import relationship
 from sqlalchemy.orm.collections import attribute_mapped_collection
-
 from sqlalchemy.types import Boolean
 from sqlalchemy.types import DateTime
 from sqlalchemy.types import Integer
 from sqlalchemy.types import LargeBinary
 from sqlalchemy.types import Text
 from sqlalchemy.types import Unicode
-
 from tg.i18n import lazy_ugettext as l_, ugettext as _
 
 from tracim.lib.exception import ContentRevisionUpdateError
 from tracim.model import DeclarativeBase, DBSession, NotVirtualContentQuery, RevisionsIntegrity
 from tracim.model.auth import User
+
 
 class BreadcrumbItem(object):
 
@@ -61,6 +57,13 @@ class Workspace(DeclarativeBase):
     updated = Column(DateTime, unique=False, nullable=False, default=datetime.now())
 
     is_deleted = Column(Boolean, unique=False, nullable=False, default=False)
+
+    revisions = relationship("ContentRevisionRO")
+
+    @hybrid_property
+    def contents(self):
+        # Return a list of unique revisions parent content
+        return list(set([revision.node for revision in self.revisions]))
 
     def get_user_role(self, user: User) -> int:
         for role in user.roles:
@@ -489,6 +492,7 @@ class ContentRevisionRO(DeclarativeBase):
     file_name = Column(Unicode(255),  unique=False, nullable=False, default='')
     file_mimetype = Column(Unicode(255),  unique=False, nullable=False, default='')
     file_content = deferred(Column(LargeBinary(), unique=False, nullable=True))
+    properties = Column('properties', Text(), unique=False, nullable=False, default='')
 
     type = Column(Unicode(32), unique=False, nullable=False)
     status = Column(Unicode(32), unique=False, nullable=False, default=ContentStatus.OPEN)  # TODO - B.S. FIXME DEV !
@@ -502,7 +506,7 @@ class ContentRevisionRO(DeclarativeBase):
     workspace = relationship('Workspace', remote_side=[Workspace.workspace_id])
 
     parent_id = Column(Integer, ForeignKey('content.id'), nullable=True, default=None)
-    parent = relationship("Content", foreign_keys=[parent_id], back_populates="children")
+    parent = relationship("Content", foreign_keys=[parent_id], back_populates="children_revisions")
 
     node = relationship("Content", foreign_keys=[content_id], back_populates="revisions")
     owner = relationship('User', remote_side=[User.user_id])
@@ -589,81 +593,17 @@ class ContentRevisionClassProxy(type):
 class Content(DeclarativeBase):
 
     __tablename__ = 'content'
-    proxied_class = ContentRevisionRO
+    proxied_class = ContentRevisionRO # TODO: DELTE IT
+
+    revision_to_serialize = -0  # This flag allow to serialize a given revision if required by the user
 
     id = Column(Integer, primary_key=True)
     revisions = relationship("ContentRevisionRO",
                              foreign_keys=[ContentRevisionRO.content_id],
                              back_populates="node")
-    children = relationship("ContentRevisionRO",
-                            foreign_keys=[ContentRevisionRO.parent_id],
-                            back_populates="parent")
-
-    # def __init__(self, *args, **kwargs):
-    #     if args:
-    #         raise Exception("You can't provide positional arguments in Content instantation. Use named arguments.")
-    #     super().__init__()
-    #     for attribute_name in kwargs:
-    #         setattr(self, attribute_name, kwargs[attribute_name])
-
-    # def __getattribute__(self, item):
-    #     try:
-    #         return DeclarativeBase.__getattribute__(self, item)
-    #     except AttributeError as exc_self:
-    #         try:
-    #             revision = DeclarativeBase.__getattribute__(self, 'revision')
-    #             return getattr(revision, item)
-    #         except AttributeError:
-    #             raise exc_self
-
-    # def __getattr__(self, item):
-    #     if item in ['_sa_instance_state']:
-    #         return super().__getattr__(item)
-    #     try:
-    #         return getattr(self.revision, item)
-    #     except AttributeError:
-    #         raise AttributeError(item)
-
-    # def __getattr__(self, item):
-    #     # columns = [attr.key for attr in inspect(self).attrs]
-    #     if item in ['_sa_instance_state']:  # Prevent infinite loop from SQLAlchemy code
-    #         return super().__getattr__(item)
-    #
-    #     return getattr(self.revision, item)
-
-    # def __setattr__(self, key, value):
-    #     if key is '_sa_instance_state':  # Prevent infinite loop from SQLAlchemy code
-    #         return super().__setattr__(key, value)
-    #
-    #     revision = self.get_current_revision()
-    #     return setattr(self.revision, key, value)
-
-    #revision_id = Column(Integer, primary_key=True)
-    #content_id = Column(Integer, ForeignKey('content.id'))
-    #owner_id = Column(Integer, ForeignKey('users.user_id'), nullable=True)
-
-    #label = Column(Unicode(1024), unique=False, nullable=False)
-    #description = Column(Text(), unique=False, nullable=False, default='')
-    #file_name = Column(Unicode(255),  unique=False, nullable=False, default='')
-    #file_mimetype = Column(Unicode(255),  unique=False, nullable=False, default='')
-    #file_content = deferred(Column(LargeBinary(), unique=False, nullable=True, default=None))
-
-    #type = Column(Unicode(32), unique=False, nullable=False)
-    #status = Column(Unicode(32), unique=False, nullable=False, default=ContentStatus.OPEN)  # TODO - B.S. FIXME DEV !
-    #created = Column(DateTime, unique=False, nullable=False, default=datetime.now())
-    #updated = Column(DateTime, unique=False, nullable=False, default=datetime.now())
-    #is_deleted = Column(Boolean, unique=False, nullable=False, default=False)
-    #is_archived = Column(Boolean, unique=False, nullable=False, default=False)
-    #revision_type = Column(Unicode(32), unique=False, nullable=False, default='')
-
-    #workspace_id = Column(Integer, ForeignKey('workspaces.workspace_id'), unique=False, nullable=True)
-    #workspace = relationship('Workspace', remote_side=[Workspace.workspace_id])
-
-    #parent_id = Column(Integer, ForeignKey('content.id'), nullable=True, default=None)
-    #parent = relationship("Content", foreign_keys=[parent_id], back_populates="children")
-
-    #node = relationship("Content", foreign_keys=[content_id], back_populates="revisions")
-    #owner = relationship('User', remote_side=[User.user_id])
+    children_revisions = relationship("ContentRevisionRO",
+                                      foreign_keys=[ContentRevisionRO.parent_id],
+                                      back_populates="parent")
 
     @hybrid_property
     def content_id(self):
@@ -760,6 +700,18 @@ class Content(DeclarativeBase):
     @file_content.expression
     def file_content(cls):
         return ContentRevisionRO.file_content
+
+    @hybrid_property
+    def _properties(self):
+        return self.revision.properties
+
+    @_properties.setter
+    def _properties(self, value):
+        self.revision.properties = value
+
+    @_properties.expression
+    def _properties(cls):
+        return ContentRevisionRO.properties
 
     @hybrid_property
     def type(self):
@@ -917,6 +869,15 @@ class Content(DeclarativeBase):
     def owner(cls):
         return ContentRevisionRO.owner
 
+    @hybrid_property
+    def children(self):
+        """
+        :return: list of children Content
+        :rtype Content
+        """
+        # Return a list of unique revisions parent content
+        return list(set([revision.node for revision in self.children_revisions]))
+
     @property
     def revision(self):
         return self.get_current_revision()
@@ -946,7 +907,7 @@ class Content(DeclarativeBase):
         for child in self.children:
             if not child.is_deleted and not child.is_archived:
                 if not content_types or child.type in content_types:
-                    yield child
+                    yield child.node
 
     @hybrid_property
     def properties(self):
@@ -1056,7 +1017,7 @@ class Content(DeclarativeBase):
         children = []
         for child in self.children:
             if ContentType.Comment==child.type and not child.is_deleted and not child.is_archived:
-                children.append(child)
+                children.append(child.node)
         return children
 
     def get_last_comment_from(self, user: User) -> 'Content':
@@ -1124,42 +1085,6 @@ class Content(DeclarativeBase):
         return url_template.format(wid=wid, fid=fid, ctype=ctype, cid=cid)
 
 
-# @event.listens_for(DBSession, 'before_flush')
-# def prevent_content_revision_updates(session, flush_context, instances):
-#     for instance in session.dirty:
-#
-#         # if isinstance(instance, ContentRevisionRO) and session.is_modified(instance):
-#         #
-#         #     raise Exception("DO NOT UPDATE")  # TODO: Exception class + message (with how to)
-#
-#         if isinstance(instance, ContentRevisionRO) and hasattr(instance, 'altered') and instance.altered:
-#             raise Exception("DO NOT UPDATE")  # TODO: Exception class + message (with how to)
-#
-#         #
-#         #     with open('/tmp/foo', 'a') as f:
-#         #         # from pprint import pprint
-#         #         # pprint(vars(flush_context), f)
-#         #         print(session.is_modified(instance), file=f)
-#         #         print("\n", file=f)
-#         #     previous_revision = instance
-#         #     new_revision = ContentRevisionRO.new_from(instance)
-#         #     session.expunge(previous_revision)
-#         #     session.add(new_revision)
-
-
-# @event.listens_for(DBSession, 'before_commit')
-# def prevent_content_revision_updates(session):
-#     for instance in session.dirty:
-#         # TODO: modifier (inspect) ... ?
-#         if isinstance(instance, ContentRevisionRO) and inspect(instance).modified:  # and hasattr(instance, 'altered') and instance.altered:
-#             previous_revision = instance
-#             new_revision = ContentRevisionRO.new_from(instance)
-#             session.expunge(previous_revision)
-#             session.add(new_revision)
-
-# TODO: REFACT prevent_content_revision_updates AND prevent_content_revision_delete
-
-
 @event.listens_for(DBSession, 'before_flush')
 def prevent_content_revision_delete(session, flush_context, instances):
     for instance in session.deleted:
@@ -1201,11 +1126,6 @@ class RevisionReadStatus(DeclarativeBase):
     revision_id = Column(Integer, ForeignKey('content_revisions.revision_id', ondelete='CASCADE', onupdate='CASCADE'), primary_key=True)
     user_id = Column(Integer, ForeignKey('users.user_id', ondelete='CASCADE', onupdate='CASCADE'), primary_key=True)
     view_datetime = Column(DateTime, unique=False, nullable=False, server_default=func.now())
-
-    # content_revision = relationship(
-    #     'ContentRevisionRO',
-    #     remote_side=[ContentRevisionRO.revision_id],
-    #     backref='revision_read_statuses')
 
     content_revision = relationship(
         'ContentRevisionRO',
