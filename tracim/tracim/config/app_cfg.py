@@ -19,6 +19,7 @@ from urllib.parse import urlparse
 
 import tg
 from paste.deploy.converters import asbool
+from tg import TGApp
 from tg.configuration.milestones import environment_loaded
 
 from tgext.pluggable import plug
@@ -123,6 +124,14 @@ Please click this link to reset your password:
 
 If you no longer wish to make the above change, or if you did not initiate this request, please disregard and/or delete this e-mail.
 ''')
+
+tracim_app = None
+def configure_new_app_hook(app: TGApp):
+    global tracim_app
+    tracim_app = app
+
+tg.hooks.register('new_app_hook', configure_new_app_hook)
+
 
 #######
 #

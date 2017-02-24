@@ -1,10 +1,13 @@
 import os
 import re
+from tg import tmpl_context
+from tg.util.webtest import test_context
 
 from wsgidav.http_authenticator import HTTPAuthenticator
 from wsgidav import util
 import cherrypy
 
+from tracim.config.app_cfg import tracim_app
 from tracim.lib.user import CurrentUserGetterApi
 from tracim.lib.user import CURRENT_USER_WSGIDAV
 
@@ -18,6 +21,10 @@ class TracimHTTPAuthenticator(HTTPAuthenticator):
         self._headerfixparser = re.compile(r'([\w]+)=("[^"]*,[^"]*"),')
 
     def authDigestAuthRequest(self, environ, start_response):
+
+        with test_context(tracim_app):
+            u = tmpl_context.identity.get('user')
+
         realmname = self._domaincontroller.getDomainRealm(environ["PATH_INFO"], environ)
 
         isinvalidreq = False
