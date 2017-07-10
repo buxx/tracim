@@ -179,7 +179,10 @@ class MailSenderDaemon(Daemon):
             port=cfg.EMAIL_SENDER_REDIS_PORT,
             db=cfg.EMAIL_SENDER_REDIS_DB,
         )):
-            self.worker = RQWorker(['mail_sender'])
+            self.worker = RQWorker(
+                queues=['mail_sender'],
+                default_result_ttl=cfg.EMAIL_SENDER_WORKER_RESULT_TTL,
+            )
             self.worker.work()
 
 

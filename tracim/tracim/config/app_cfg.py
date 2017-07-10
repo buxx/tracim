@@ -386,6 +386,10 @@ class CFG(object):
             'email.async.redis.db',
             0,
         ))
+        self.EMAIL_SENDER_WORKER_RESULT_TTL = int(tg.config.get(
+            'email.async.worker.result_ttl',
+            3600 * 24,
+        ))
 
     def get_tracker_js_content(self, js_tracker_file_path = None):
         js_tracker_file_path = tg.config.get('js_tracker_path', None)
