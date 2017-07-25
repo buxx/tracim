@@ -2,6 +2,7 @@
 
 <%namespace name="TIM" file="tracim.templates.pod"/>
 <%namespace name="FORMS" file="tracim.templates.user_workspace_forms"/>
+<%namespace name="LEFT_MENU" file="tracim.templates.widgets.left_menu"/>
 <%namespace name="WIDGETS" file="tracim.templates.user_workspace_widgets"/>
 
 <%namespace name="TOOLBAR" file="tracim.templates.page.toolbar"/>
@@ -14,9 +15,7 @@
 <%def name="title()">${result.page.label}</%def>
 
 <%def name="SIDEBAR_LEFT_CONTENT()">
-    <h4>${_('Workspaces')}</h4>
-    ${WIDGETS.TREEVIEW('sidebar-left-menu', 'workspace_{}__item_{}'.format(result.page.workspace.id, result.page.id))}
-    <hr/>
+    ${LEFT_MENU.TREEVIEW('sidebar-left-menu', 'workspace_{}__item_{}'.format(result.page.workspace.id, result.page.id))}
 </%def>
 
 <%def name="SIDEBAR_RIGHT_CONTENT()">
@@ -36,7 +35,7 @@
 
 <div class="content-container ${'not-editable' if not result.page.is_editable else ''} ${'archived' if result.page.is_archived else ''} ${'deleted' if result.page.is_deleted else ''}">
 
-    <div class="t-page-header-row">
+    <div class="t-page-header-row bg-secondary">
         <div class="main">
             <h1 class="page-header t-page-color-border">
                 <i class="fa fa-fw fa-lg fa-file-text-o tracim-less-visible t-page-color"></i>
@@ -49,7 +48,14 @@
 
             <div style="margin: -1.5em auto -1.5em auto;" class="tracim-less-visible">
                 <% created_localized = h.get_with_timezone(result.page.created) %>
-              <p>${_('page created on {date} at {time} by <b>{author}</b>').format(date=h.date(created_localized), time=h.time(created_localized), author=result.page.owner.name)|n}</p>
+                <% updated_localized = h.get_with_timezone(result.page.updated) %>
+                <% last_modification_author = result.page.last_modification_author.name %>
+                <p>
+                    ${_('page created on {date} at {time} by <b>{author}</b> ').format(date=h.date(created_localized), time=h.time(created_localized), author=result.page.owner.name)|n}
+                    % if result.page.revision_nb > 1:
+                      ${_('(last modification on {update_date} at {update_time} by {last_modification_author})').format(update_date=h.update_date(updated_localized), update_time=h.update_time(updated_localized), last_modification_author = last_modification_author)|n}
+                    % endif
+                </p>
             </div>
         </div>
     </div>

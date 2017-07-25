@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 import cherrypy
-import os
 
 import types
 
-from bs4 import BeautifulSoup
 from babel.dates import format_timedelta
 from babel.dates import format_datetime
 
@@ -12,6 +10,9 @@ from datetime import datetime
 import tg
 from tg.i18n import ugettext as _
 from tg.util import LazyString
+
+from depot.manager import DepotManager
+
 from tracim.lib.base import logger
 from tracim.lib.user import CurrentUserGetterApi
 from tracim.model.auth import Profile
@@ -388,12 +389,14 @@ def serialize_node_for_page(content: Content, context: Context):
             is_new=content.has_new_information_for(context.get_user()),
             content=data_container.description,
             created=data_container.created,
+            updated=content.last_revision.updated,
             label=data_container.label,
             icon=ContentType.get_icon(content.type),
-            owner=context.toDict(data_container.owner),
+            owner=context.toDict(content.first_revision.owner),
+            last_modification_author=context.toDict(content.last_revision.owner),
             status=context.toDict(data_container.get_status()),
             links=[],
-            revisions=context.toDict(sorted(content.revisions, key=lambda v: v.created, reverse=True)),
+            revision_nb = len(content.revisions),
             selected_revision='latest' if content.revision_to_serialize<=0 else content.revision_to_serialize,
             history=Context(CTX.CONTENT_HISTORY).toDict(content.get_history()),
             is_editable=content.is_editable,
@@ -405,12 +408,14 @@ def serialize_node_for_page(content: Content, context: Context):
             })
         )
 
-        if content.type==ContentType.File:
+        if content.type == ContentType.File:
+            depot = DepotManager.get()
+            depot_stored_file = depot.get(data_container.depot_file)
             result.label = content.label
             result['file'] = DictLikeClass(
-                name = data_container.file_name,
-                size = len(data_container.file_content),
-                mimetype = data_container.file_mimetype)
+                name=data_container.file_name,
+                size=depot_stored_file.content_length,
+                mimetype=data_container.file_mimetype)
         return result
 
     if content.type==ContentType.Folder:
@@ -450,16 +455,19 @@ def serialize_content_for_history(event: VirtualEvent, context: Context):
     )
 
 @pod_serializer(Content, CTX.THREAD)
-def serialize_node_for_page(item: Content, context: Context):
+def serialize_node_for_thread(item: Content, context: Context):
     if item.type==ContentType.Thread:
         return DictLikeClass(
             content = item.description,
             created = item.created,
+            updated = item.last_revision.updated,
+            revision_nb = len(item.revisions),
             icon = ContentType.get_icon(item.type),
             id = item.content_id,
             label = item.label,
             links=[],
             owner = context.toDict(item.owner),
+            last_modification_author=context.toDict(item.last_revision.owner),
             parent = context.toDict(item.parent),
             selected_revision = 'latest',
             status = context.toDict(item.get_status()),
@@ -595,6 +603,9 @@ def serialize_content_for_workspace_and_folder(content: Content, context: Contex
             id=content.content_id,
             label=content.label,
             created=content.created,
+            updated=content.last_revision.updated,
+            last_modification_author=context.toDict(content.last_revision.owner),
+            revision_nb=len(content.revisions),
             workspace=context.toDict(content.workspace),
             allowed_content=DictLikeClass(content.properties['allowed_content']),
             allowed_content_types=context.toDict(content.get_allowed_content_types()),

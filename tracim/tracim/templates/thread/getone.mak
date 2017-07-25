@@ -2,6 +2,7 @@
 
 <%namespace name="TIM" file="tracim.templates.pod"/>
 <%namespace name="TOOLBAR" file="tracim.templates.thread.toolbar"/>
+<%namespace name="LEFT_MENU" file="tracim.templates.widgets.left_menu"/>
 <%namespace name="WIDGETS" file="tracim.templates.user_workspace_widgets"/>
 
 
@@ -16,9 +17,7 @@
 <%def name="title()">${result.thread.label}</%def>
 
 <%def name="SIDEBAR_LEFT_CONTENT()">
-    <h4>${_('Workspaces')}</h4>
-    ${WIDGETS.TREEVIEW('sidebar-left-menu', 'workspace_{}__item_{}'.format(result.thread.workspace.id, result.thread.id))}
-    <hr/>
+    ${LEFT_MENU.TREEVIEW('sidebar-left-menu', 'workspace_{}__item_{}'.format(result.thread.workspace.id, result.thread.id))}
 </%def>
 
 <%def name="SIDEBAR_RIGHT_CONTENT()">
@@ -38,7 +37,7 @@
 
 <div class="content-container ${'not-editable' if not result.thread.is_editable else ''} ${'archived' if result.thread.is_archived else ''} ${'deleted' if result.thread.is_deleted else ''}">
 
-    <div class="t-page-header-row">
+    <div class="t-page-header-row bg-secondary">
         <div class="main">
             <h1 class="page-header t-thread-color-border">
                 <i class="fa fa-fw fa-lg fa-comments-o tracim-less-visible t-thread-color"></i>
@@ -51,8 +50,14 @@
 
             <div style="margin: -1.5em auto -1.5em auto;" class="tracim-less-visible">
                 <% created_localized = h.get_with_timezone(result.thread.created) %>
-              <p>${_('page created on {date} at {time} by <b>{author}</b>').format(date=h.date(created_localized), time=h.time(created_localized), author=result.thread.owner.name)|n}</p>
-            </div>
+                <% updated_localized = h.get_with_timezone(result.thread.updated) %>
+                <% last_modification_author = result.thread.last_modification_author.name %>
+                <p>${_('page created on {date} at {time} by <b>{author}</b>').format(date=h.date(created_localized), time=h.time(created_localized), author=result.thread.owner.name)|n}
+                    % if result.thread.revision_nb > 1:
+                      ${_(' (last modification on {update_date} at {update_time} by {last_modification_author})').format(update_date=h.update_date(updated_localized), update_time=h.update_time(updated_localized), last_modification_author = last_modification_author)|n}
+                    % endif
+                </p>
+
         </div>
     </div>
 

@@ -3,6 +3,7 @@
 <%namespace name="TOOLBAR" file="tracim.templates.file.toolbar"/>
 <%namespace name="FORMS" file="tracim.templates.file.forms"/>
 
+<%namespace name="LEFT_MENU" file="tracim.templates.widgets.left_menu"/>
 <%namespace name="WIDGETS" file="tracim.templates.user_workspace_widgets"/>
 
 <%namespace name="BUTTON" file="tracim.templates.widgets.button"/>
@@ -16,9 +17,7 @@
 <%def name="title()">${result.file.label}</%def>
 
 <%def name="SIDEBAR_LEFT_CONTENT()">
-    <h4>${_('Workspaces')}</h4>
-    ${WIDGETS.TREEVIEW('sidebar-left-menu', 'workspace_{}__item_{}'.format(result.file.workspace.id, result.file.id))}
-    <hr/>
+    ${LEFT_MENU.TREEVIEW('sidebar-left-menu', 'workspace_{}__item_{}'.format(result.file.workspace.id, result.file.id))}
 </%def>
 
 <%def name="SIDEBAR_RIGHT_CONTENT()">
@@ -38,7 +37,7 @@
 
 <div class="content-container ${'not-editable' if not result.file.is_editable else ''} ${'archived' if result.file.is_archived else ''} ${'deleted' if result.file.is_deleted else ''}">
 
-    <div class="t-page-header-row">
+    <div class="t-page-header-row bg-secondary">
         <div class="main">
             <h1 class="page-header t-file-color-border">
                 <i class="fa fa-fw fa-lg fa-paperclip tracim-less-visible t-file-color"></i>
@@ -51,7 +50,14 @@
 
             <div style="margin: -1.5em auto -1.5em auto;" class="tracim-less-visible">
                 <% created_localized = h.get_with_timezone(result.file.created) %>
-              <p>${_('file created on {date} at {time} by <b>{author}</b>').format(date=h.date(created_localized), time=h.time(created_localized), author=result.file.owner.name)|n}</p>
+                <% updated_localized = h.get_with_timezone(result.file.updated) %>
+                <% last_modification_author = result.file.last_modification_author.name %>
+              <p>${_('file created on {date} at {time} by <b>{author}</b>').format(date=h.date(created_localized), time=h.time(created_localized), author=result.file.owner.name)|n}
+                  % if result.file.revision_nb > 1:
+                      ${_(' (last modification on {update_date} at {update_time} by {last_modification_author})').format(update_date=h.update_date(updated_localized), update_time=h.update_time(updated_localized), last_modification_author = last_modification_author)|n}
+                  % endif
+              </p>
+
             </div>
         </div>
     </div>
@@ -104,6 +110,90 @@
 
         <div class="t-half-spacer-above">
             <table class="table table-hover table-condensed table-striped table-bordered">
+                <tr>
+                    <td class="tracim-title">${_('Preview')}</td>
+                    <td>
+                        <table>
+                            <tr>
+                                <td>
+                                    <button type="button" id="prev" onclick="previous_page()">
+                                        <span class="pull-left">
+                                            ${ICON.FA_FW('fa fa-chevron-left')}
+                                        </span>
+                                    </button>
+                                </td>
+                                <td>
+                                    <a id="preview_link"><img id='preview' alt="Preview"></a>
+                                </td>
+                                <td>
+                                    <button type="button" id="next" onclick="next_page()">
+                                        <span>
+                                            ${ICON.FA_FW('fa fa-chevron-right')}
+                                        </span>
+                                    </button>
+                                </td>
+                                <td>
+                                    <a type="button" id="dl_one_pdf">${_('this page')}
+                                        <span class="pull-left">
+                                            ${ICON.FA_FW('fa fa-download')}
+                                        </span>
+                                    </a>
+                                </td>
+                                <td>
+                                    <a type="button" id="dl_full_pdf">${_('all pages')}
+                                        <span class="pull-left">
+                                            ${ICON.FA_FW('fa fa-download')}
+                                        </span>
+                                    </a>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <script type="text/javascript">
+                            var nb_page = parseInt(${nb_page});
+                            console.log(nb_page);
+                            var page = 0;
+                            var urls = [];
+                            % for one_url in url:
+                            urls.push('${one_url}');
+                            % endfor
+                            console.log(urls);
+                            document.getElementById('preview').src = urls[page];
+                            refresh_button();
+
+                            function next_page(){
+                                page = page+1;
+                                console.log('page next');
+                                console.log(urls[page]);
+                                document.getElementById('preview').src = urls[page];
+                                refresh_button();
+                            }
+
+                            function previous_page(){
+                                page = page-1;
+                                console.log('page previous');
+                                console.log(urls[page]);
+                                document.getElementById('preview').src = urls[page];
+                                refresh_button();
+                            }
+
+                            function refresh_button(){
+                                console.log(page);
+                                document.getElementById('prev').disabled = false;
+                                document.getElementById('next').disabled = false;
+                                document.getElementById('dl_one_pdf').href = "/previews/${result.file.id}/pages/" + page + "/download_pdf_one?revision_id=${result.file.selected_revision}";
+                                document.getElementById('dl_full_pdf').href = "/previews/${result.file.id}/pages/" + page + "/download_pdf_full?revision_id=${result.file.selected_revision}";
+                                document.getElementById('preview_link').href = "/previews/${result.file.id}/pages/" + page + "/high_quality?revision_id=${result.file.selected_revision}";
+                                if(page >= nb_page-1){
+                                    document.getElementById('next').disabled = true;
+                                }
+                                if(page <= 0){
+                                    document.getElementById('prev').disabled = true;
+                                }
+                            }
+                        </script>
+                    </td>
+                </tr>
                 <tr>
                     <td class="tracim-title">${_('File')}</td>
                     <td>
