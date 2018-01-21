@@ -6,7 +6,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "gulp-dev": "gulp dev",
-    "gulp-prod": "gulp prod"
+    "gulp-prod": "gulp prod",
+    "snyk-protect": "snyk protect",
+    "prepublish": "npm run snyk-protect"
   },
   "repository": {
     "type": "git",
@@ -35,6 +37,8 @@
     "gulp-sync": "^0.1.4",
     "gulp-uglify": "^1.5.3",
     "jshint": "^2.9.2",
-    "jshint-stylish": "^2.2.0"
-  }
+    "jshint-stylish": "^2.2.0",
+    "snyk": "^1.69.1"
+  },
+  "snyk": true
 }
